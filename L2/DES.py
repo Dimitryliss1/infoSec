@@ -1,4 +1,5 @@
 import codecs
+import math
 from hashlib import sha512
 
 SBox_matrix = [
@@ -139,15 +140,22 @@ def feistel_func(r, k, encoding_round):
     expanded = expand(r)
     key = generate_round_key(k, encoding_round)
     summed_with_key = ''.join([str(int(i) ^ int(j)) for i, j in zip(expanded, key)])
-    after_sub = ''.join([substitute(summed_with_key[i:i+6], i // 6) for i in range(0, 48, 6)])
+    after_sub = ''.join([substitute(summed_with_key[i:i + 6], i // 6) for i in range(0, 48, 6)])
     result = permute(after_sub)
     return result
 
 
 def encrypt_block(message, key):
-    sha_key = sha512(bytes(str(key), "utf-8")).hexdigest()[:14]
-    sha_key = bin(int(sha_key, base=16))[2:]
+    if len(key) < 7:
+        raise Exception
+    key = key[:7]
+    sha_key = ""
+    for item in key:
+        sha_key += intTo8BitBin(ord(item))
+    # sha_key = sha512(bytes(str(key), "utf-8")).hexdigest()[:14]
+    # sha_key = bin(int(sha_key, base=16))[2:]
 
+    print(sha_key)
     IP = [
         58, 50, 42, 34, 26, 18, 10, 2, 60, 52, 44, 36, 28, 20, 12, 4,
         62, 54, 46, 38, 30, 22, 14, 6, 64, 56, 48, 40, 32, 24, 16, 8,
@@ -180,8 +188,16 @@ def encrypt_block(message, key):
 
 
 def decrypt_block(encrypted, key):
-    sha_key = sha512(bytes(str(key), "utf-8")).hexdigest()[:14]
-    sha_key = bin(int(sha_key, base=16))[2:]
+    if len(key) < 7:
+        raise Exception
+    key = key[:7]
+    sha_key = ""
+    for item in key:
+        sha_key += intTo8BitBin(ord(item))
+
+    # sha_key = sha512(bytes(str(key), "utf-8")).hexdigest()[:14]
+    # sha_key = bin(int(sha_key, base=16))[2:]
+
     IP = [
         58, 50, 42, 34, 26, 18, 10, 2, 60, 52, 44, 36, 28, 20, 12, 4,
         62, 54, 46, 38, 30, 22, 14, 6, 64, 56, 48, 40, 32, 24, 16, 8,
@@ -216,7 +232,7 @@ def decrypt_block(encrypted, key):
 
 def intTo8BitBin(num: int):
     binary = bin(num)[2:]
-    return "0"*(8 - len(binary)) + binary
+    return "0" * (8 - len(binary)) + binary
 
 
 def encrypt(message, key):
@@ -225,12 +241,12 @@ def encrypt(message, key):
     i = 0
     bl_cnt = 0
     while i + 64 <= len(message_coded):
-        blocks.append(message_coded[i:i+64])
+        blocks.append(message_coded[i:i + 64])
         bl_cnt += 1
         i += 64
 
     if i != len(message_coded):
-        blocks.append(message_coded[i:] + "0" * (len(message_coded) - i))
+        blocks.append(message_coded[i:] + "0" * (math.ceil(len(message_coded) / 64) * 64 - i))
 
     encrypted = []
     for block in blocks:
@@ -239,7 +255,7 @@ def encrypt(message, key):
 
 
 def decrypt(encrypted_message, key):
-    encrypted_blocks = [encrypted_message[i:i+16] for i in range(0, len(encrypted_message), 16)]
+    encrypted_blocks = [encrypted_message[i:i + 16] for i in range(0, len(encrypted_message), 16)]
     decrypted = []
     for block in encrypted_blocks:
         block = bin(int(block, base=16))[2:]
@@ -249,17 +265,16 @@ def decrypt(encrypted_message, key):
     decrypted = "".join(decrypted)
     blocks = 0
     for i in range(len(decrypted) - 8, -1, -8):
-        if decrypted[i: i+8] == "0"*8:
+        if decrypted[i: i + 8] == "0" * 8:
             blocks += 1
         else:
             break
 
-    decrypted = decrypted[:-8*blocks]
+    decrypted = decrypted[:len(decrypted) - 8 * blocks]
 
-    decrypted = bytes([int(decrypted[i:i+8], base=2) for i in range(0, len(decrypted), 8)])
+    decrypted = bytes([int(decrypted[i:i + 8], base=2) for i in range(0, len(decrypted), 8)])
 
     return codecs.decode(decrypted)
 
 
-print(decrypt(encrypt("Hello, world!", "12"), "12"))
-
+print(decrypt(encrypt("123", "abcdefg"), "abcdefg"))
